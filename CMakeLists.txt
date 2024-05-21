@@ -6,6 +6,10 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 set(CMAKE_AUTOMOC ON)
 
-add_executable(ewea main.cpp EWEAMainWindow.cpp)
+add_executable(ewea
+               main.cpp
+               EWEAMainWindow.cpp
+               EXEViewer.cpp
+              )
 target_include_directories(ewea PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(ewea PUBLIC Qt6::Core Qt6::Widgets Qt6::Gui)

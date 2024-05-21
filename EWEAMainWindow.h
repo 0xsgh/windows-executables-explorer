@@ -5,8 +5,12 @@
 #include <QMainWindow>
 #include <QPointer>
 
+#include <vector>
+
 class QDragEnterEvent;
 class QListWidget;
+class QStackedWidget;
+class QTabWidget;
 
 class EWEAMainWindow : public QMainWindow
 {
@@ -23,7 +27,9 @@ private:
     dropEvent( QDropEvent* dropEvent ) override;
 
 private:
-    QPointer<QListWidget>    m_loadedFilesList;
+    QPointer<QListWidget>                m_loadedFilesList;
+    std::vector<QPointer<QTabWidget>>    m_executableArtifactViewers;
+    QPointer<QStackedWidget>             m_artifactViewersStack;
 };
 
 #endif // EWEAMAINWINDOW_H

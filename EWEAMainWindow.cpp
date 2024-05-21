@@ -1,11 +1,13 @@
 
 #include "EWEAMainWindow.h"
+#include "EXEViewer.h"
 
 #include <QDragEnterEvent>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QMimeData>
 #include <QSplitter>
+#include <QStackedWidget>
 
 EWEAMainWindow::EWEAMainWindow( QWidget* parentWidget )
 : QMainWindow( parentWidget )
@@ -18,8 +20,12 @@ EWEAMainWindow::EWEAMainWindow( QWidget* parentWidget )
     mainLayout->addWidget( topLevelSplitter );
 
     m_loadedFilesList = new QListWidget;
-
     topLevelSplitter->addWidget( m_loadedFilesList );
+
+    m_artifactViewersStack = new QStackedWidget;
+    topLevelSplitter->addWidget( m_artifactViewersStack );
+
+    topLevelSplitter->setStretchFactor( 1, 1 );
 
     setAcceptDrops( true );
 
@@ -42,9 +48,12 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
 {
     if ( dropEvent->mimeData()->hasUrls() )
     {
-        for ( const auto& url : dropEvent->mimeData()->urls() )
+        for ( const auto& fileURL : dropEvent->mimeData()->urls() )
         {
-            m_loadedFilesList->addItem( url.toLocalFile() );
+            auto pathOfExecutableFile = fileURL.toLocalFile();
+
+            m_loadedFilesList->addItem( pathOfExecutableFile );
+            m_artifactViewersStack->addWidget( new EXEViewer );
         }
     }
 }
