@@ -1,5 +1,6 @@
 
 #include "EWEAMainWindow.h"
+#include "EXEFile.h"
 #include "EXEViewer.h"
 
 #include <QDragEnterEvent>
@@ -8,6 +9,8 @@
 #include <QMimeData>
 #include <QSplitter>
 #include <QStackedWidget>
+
+#include <utility>
 
 EWEAMainWindow::EWEAMainWindow( QWidget* parentWidget )
 : QMainWindow( parentWidget )
@@ -57,11 +60,16 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
                 continue;
             }
 
-            auto newListItem = new QListWidgetItem( m_loadedFilesList );
-            newListItem->setText( pathOfExecutableFile );
+            auto newListItem = new QListWidgetItem( pathOfExecutableFile );
             newListItem->setToolTip( pathOfExecutableFile );
 
-            m_artifactViewersStack->addWidget( new EXEViewer );
+            if ( pathOfExecutableFile.endsWith( ".exe" ) )
+            {
+                auto loadedEXEFile = loadEXEFile( pathOfExecutableFile.toStdString() );
+                m_artifactViewersStack->addWidget( new EXEViewer( std::move( loadedEXEFile ) ) );
+            }
+
+            m_loadedFilesList->addItem( newListItem );
         }
     }
 }

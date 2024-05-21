@@ -9,7 +9,9 @@ set(CMAKE_AUTOMOC ON)
 add_executable(ewea
                main.cpp
                EWEAMainWindow.cpp
+               EXEFile.cpp
                EXEViewer.cpp
               )
+set_target_properties(ewea PROPERTIES CXX_STANDARD 20)
 target_include_directories(ewea PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(ewea PUBLIC Qt6::Core Qt6::Widgets Qt6::Gui)
