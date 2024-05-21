@@ -52,7 +52,15 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
         {
             auto pathOfExecutableFile = fileURL.toLocalFile();
 
-            m_loadedFilesList->addItem( pathOfExecutableFile );
+            if ( not pathOfExecutableFile.endsWith( ".exe" ) )
+            {
+                continue;
+            }
+
+            auto newListItem = new QListWidgetItem( m_loadedFilesList );
+            newListItem->setText( pathOfExecutableFile );
+            newListItem->setToolTip( pathOfExecutableFile );
+
             m_artifactViewersStack->addWidget( new EXEViewer );
         }
     }
