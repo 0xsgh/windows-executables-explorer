@@ -7,7 +7,7 @@
 
 struct EXEFile
 {
-    std::vector<unsigned char>    m_rawBytes;
+    std::vector<unsigned char>    rawBytes;
 };
 
 EXEFile
