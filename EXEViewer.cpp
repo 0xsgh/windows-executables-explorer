@@ -20,6 +20,10 @@ namespace
     void
     setUpNTOptionalHeaderWidgets( EXEFile const& loadedEXEFile,
                                   QGroupBox* ntOptionalHeaderWidgetsContainer );
+
+    void
+    setUpDataDirectoryWidgets( EXEFile const& loadedEXEFile,
+                               QGroupBox* dataDirectoryWidgetsContainer );
 }
 
 EXEViewer::EXEViewer( EXEFile&& loadedEXEFile,
@@ -28,7 +32,7 @@ EXEViewer::EXEViewer( EXEFile&& loadedEXEFile,
 , m_loadedEXEFile( std::move( loadedEXEFile ) )
 {
     setUpRawDataTab();
-    setUpHeadersTab();
+    setUpFileHeadersTab();
 }
 
 void
@@ -59,10 +63,10 @@ EXEViewer::setUpRawDataTab()
 }
 
 void
-EXEViewer::setUpHeadersTab()
+EXEViewer::setUpFileHeadersTab()
 {
     auto headersTabRootWidget = new QWidget;
-    addTab( headersTabRootWidget, "Headers" );
+    addTab( headersTabRootWidget, "File Headers" );
 
     auto headersTabMainLayout = new QVBoxLayout( headersTabRootWidget );
 
@@ -75,11 +79,15 @@ EXEViewer::setUpHeadersTab()
     auto ntOptionalHeaderWidgetsContainer = new QGroupBox( "NT Optional Header" );
     headersTabMainLayout->addWidget( ntOptionalHeaderWidgetsContainer );
 
+    auto dataDirectoryWidgetsContainer = new QGroupBox( "Data Directories" );
+    headersTabMainLayout->addWidget( dataDirectoryWidgetsContainer );
+
     headersTabMainLayout->addStretch();
 
     setUpDOSHeaderWidgets( m_loadedEXEFile, dosHeaderWidgetsContainer );
     setUpNTFileHeaderWidgets( m_loadedEXEFile, ntFileHeaderWidgetsContainer );
     setUpNTOptionalHeaderWidgets( m_loadedEXEFile, ntOptionalHeaderWidgetsContainer );
+    setUpDataDirectoryWidgets( m_loadedEXEFile, dataDirectoryWidgetsContainer );
 }
 
 namespace
@@ -102,10 +110,23 @@ namespace
     {
         auto ntFileHeaderWidgetsLayout = new QVBoxLayout( ntFileHeaderWidgetsContainer );
 
+        auto const& ntFileHeader = loadedEXEFile.ntFileHeader;
+
         auto optionalHeaderSizeLabel =
             new QLabel( QString( "Size of optional header: %1" )
-                            .arg( loadedEXEFile.ntFileHeader.sizeOfOptionalHeader ) );
+                            .arg( ntFileHeader.sizeOfOptionalHeader ) );
         ntFileHeaderWidgetsLayout->addWidget( optionalHeaderSizeLabel );
+
+        auto const targetMachineArchitectureHexString =
+            QString( "%1" ).arg( ntFileHeader.targetMachineArchitecture,
+                                 4, 16, QChar( '0' ) ).toUpper();
+        auto const targetMachineArchitectureName =
+            QString::fromStdString( getMachineArchitectureName( ntFileHeader.targetMachineArchitecture ) );
+        auto targetMachineArchitectureLabel =
+            new QLabel( QString( "Target machine architecture: 0x%1 (%2)" )
+                            .arg( targetMachineArchitectureHexString )
+                            .arg( targetMachineArchitectureName ) );
+        ntFileHeaderWidgetsLayout->addWidget( targetMachineArchitectureLabel );
     }
 
     void
@@ -115,11 +136,97 @@ namespace
         auto ntOptionalHeaderWidgetsLayout =
             new QVBoxLayout( ntOptionalHeaderWidgetsContainer );
 
+        auto const& optionalHeader = loadedEXEFile.ntOptionalHeader;
+
         auto const peSignatureHexString =
-            QString( "%1" ).arg( loadedEXEFile.ntOptionalHeader.peSignature,
+            QString( "%1" ).arg( optionalHeader.peSignature,
                                  0, 16, QChar( '0' ) ).toUpper();
+        auto const peSignatureName =
+            QString::fromStdString( getPESignatureName( optionalHeader.peSignature ) );
         auto peSignatureLabel =
-            new QLabel( QString( "PE signature: 0x%1" ).arg( peSignatureHexString ) );
+            new QLabel( QString( "PE signature: 0x%1 (%2)" )
+                            .arg( peSignatureHexString )
+                            .arg( peSignatureName ) );
         ntOptionalHeaderWidgetsLayout->addWidget( peSignatureLabel );
+
+        auto linkerVersionLabel =
+            new QLabel( QString( "Linker version: %1.%2" )
+                            .arg( optionalHeader.linkerMajorVersion )
+                            .arg( optionalHeader.linkerMinorVersion ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( linkerVersionLabel );
+
+        auto sizeOfCodeLabel =
+            new QLabel( QString( "Size of code: %1" )
+                            .arg( optionalHeader.sizeOfCodeInBytes ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( sizeOfCodeLabel );
+
+        auto sizeOfInitializedDataLabel =
+            new QLabel( QString( "Size of initialized data: %1" )
+                            .arg( optionalHeader.sizeOfInitializedDataInBytes ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( sizeOfInitializedDataLabel );
+
+        auto sizeOfUninitializedDataLabel =
+            new QLabel( QString( "Size of uninitialized data: %1" )
+                            .arg( optionalHeader.sizeOfUninitializedDataInBytes ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( sizeOfUninitializedDataLabel );
+
+        auto const entryPointAddressHexString =
+            QString( "%1" ).arg( optionalHeader.addressOfEntryPoint,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto addressOfEntryPointLabel =
+            new QLabel( QString( "Address of entry point: 0x%1" )
+                            .arg( entryPointAddressHexString ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( addressOfEntryPointLabel );
+
+        auto const baseOfCodeAddressHexString =
+            QString( "%1" ).arg( optionalHeader.addressOfBaseOfCode,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto addressOfBaseOfCodeLabel =
+            new QLabel( QString( "Address of base of code: 0x%1" )
+                            .arg( baseOfCodeAddressHexString ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( addressOfBaseOfCodeLabel );
+
+        auto const imageBaseAddressHexString =
+            QString( "%1" ).arg( optionalHeader.preferredBaseAddressOfImage,
+                                 16, 16, QChar( '0' ) ).toUpper();
+        auto preferredBaseAddressOfImageLabel =
+            new QLabel( QString( "Preferred base address of image: 0x%1" )
+                            .arg( imageBaseAddressHexString ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( preferredBaseAddressOfImageLabel );
+    }
+
+    void
+    setUpDataDirectoryWidgets( EXEFile const& loadedEXEFile,
+                               QGroupBox* dataDirectoryWidgetsContainer )
+    {
+        auto dataDirectoryWidgetsLayout =
+            new QVBoxLayout( dataDirectoryWidgetsContainer );
+
+        auto const& dataDirectoryEntries = loadedEXEFile.dataDirectoryEntries;
+
+        for ( auto i = 0; i < dataDirectoryEntries.size(); i++ )
+        {
+            auto const& dataDirectoryEntry = dataDirectoryEntries[ i ];
+
+            auto const dataDirectoryDescription =
+                QString::fromStdString( getImageDataDirectoryDescription( i ) );
+
+            auto const dataDirectoryRVAHexString =
+                QString( "%1" ).arg( dataDirectoryEntry.dataDirectoryRVA,
+                                     8, 16, QChar( '0' ) ).toUpper();
+
+            auto dataDirectoryEntryLabel =
+                new QLabel( QString( "%1: %2 bytes @ 0x%3" )
+                                .arg( dataDirectoryDescription )
+                                .arg( dataDirectoryEntry.sizeInBytes )
+                                .arg( dataDirectoryRVAHexString ) );
+            dataDirectoryWidgetsLayout->addWidget( dataDirectoryEntryLabel );
+
+            if (     dataDirectoryEntry.dataDirectoryRVA == 0
+                 and dataDirectoryEntry.sizeInBytes == 0 )
+            {
+                dataDirectoryEntryLabel->setEnabled( false );
+            }
+        }
     }
 }

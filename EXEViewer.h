@@ -19,7 +19,7 @@ private:
     setUpRawDataTab();
 
     void
-    setUpHeadersTab();
+    setUpFileHeadersTab();
 
 private:
     EXEFile    m_loadedEXEFile;
