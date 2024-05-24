@@ -18,6 +18,9 @@ private:
     void
     setUpRawDataTab();
 
+    void
+    setUpHeadersTab();
+
 private:
     EXEFile    m_loadedEXEFile;
 };

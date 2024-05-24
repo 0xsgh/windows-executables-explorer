@@ -1,7 +1,13 @@
 
 #include "EXEFile.h"
 
+#include <cstring>
 #include <fstream>
+
+namespace
+{
+    auto const optionalHeaderSig_PE32Plus = 0x20B;
+}
 
 EXEFile
 loadEXEFile( std::string const& pathOfExecutableFile )
@@ -26,6 +32,29 @@ loadEXEFile( std::string const& pathOfExecutableFile )
         exeFile.read( reinterpret_cast<char*>( loadedEXEFile.rawBytes.data() ),
                       fileSizeInBytes );
     }
+
+    std::memcpy( &loadedEXEFile.dosHeader,
+                 loadedEXEFile.rawBytes.data(),
+                 sizeof( DOSHeader ) );
+
+    auto const ntFileHeaderOffset =
+        loadedEXEFile.dosHeader.offsetOfNTFileHeader + sizeof( loadedEXEFile.ntSignature );
+    std::memcpy( &loadedEXEFile.ntFileHeader,
+                 loadedEXEFile.rawBytes.data() + ntFileHeaderOffset,
+                 sizeof( NTFileHeader ) );
+
+    auto const ntOptionalHeaderOffset = ntFileHeaderOffset + sizeof( NTFileHeader );
+    auto const optionalHeaderSignature =
+        *reinterpret_cast<unsigned short const*>( loadedEXEFile.rawBytes.data() +
+                                                  ntOptionalHeaderOffset );
+    if ( optionalHeaderSignature != optionalHeaderSig_PE32Plus )
+    {
+        throw std::runtime_error{ "Only PE32+ files are supported." };
+    }
+
+    std::memcpy( &loadedEXEFile.ntOptionalHeader,
+                 loadedEXEFile.rawBytes.data() + ntOptionalHeaderOffset,
+                 sizeof( NTOptionalHeader64 ) );
 
     return loadedEXEFile;
 }
