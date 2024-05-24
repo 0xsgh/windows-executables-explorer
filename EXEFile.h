@@ -2,6 +2,7 @@
 #ifndef EXEFILE_H
 #define EXEFILE_H
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -14,7 +15,8 @@ struct DOSHeader
 struct NTFileHeader
 {
     unsigned short   targetMachineArchitecture;
-    unsigned char    _unusedBytes1[14];
+    unsigned short   numberOfSections;
+    unsigned char    _unusedBytes1[12];
     unsigned short   sizeOfOptionalHeader;
     unsigned char    _unusedBytes2[2];
 };
@@ -40,14 +42,29 @@ struct DataDirectoryEntry
     unsigned long    sizeInBytes;
 };
 
+struct SectionHeader
+{
+    unsigned long long    sectionNameAsNumber;
+    unsigned long         sectionSizeInBytesInMemory;
+    unsigned long         sectionBaseAddressInMemory;
+    unsigned long         sizeOfRawDataInBytes;
+    unsigned long         pointerToRawData;
+    unsigned long         pointerToRelocations;
+    unsigned long         pointerToLineNumbers;
+    unsigned short        numberOfRelocations;
+    unsigned short        numberOfLineNumberEntries;
+    unsigned long         sectionCharacteristics;
+};
+
 struct EXEFile
 {
-    std::vector<unsigned char>         rawBytes;
-    DOSHeader                          dosHeader;
-    unsigned long                      ntSignature;
-    NTFileHeader                       ntFileHeader;
-    NTOptionalHeader64                 ntOptionalHeader;
-    std::vector<DataDirectoryEntry>    dataDirectoryEntries;
+    std::vector<unsigned char>              rawBytes;
+    DOSHeader                               dosHeader;
+    unsigned long                           ntSignature;
+    NTFileHeader                            ntFileHeader;
+    NTOptionalHeader64                      ntOptionalHeader;
+    std::vector<DataDirectoryEntry>         dataDirectoryEntries;
+    std::map<std::string, SectionHeader>    sectionHeadersNameToInfo;
 };
 
 EXEFile

@@ -3,10 +3,14 @@
 
 #include <cstring>
 #include <fstream>
+#include <string>
 
 namespace
 {
     auto const optionalHeaderSig_PE32Plus = 0x20B;
+
+    std::string
+    getEXESectionName( unsigned long long const sectionNameAsNumber );
 }
 
 EXEFile
@@ -64,6 +68,20 @@ loadEXEFile( std::string const& pathOfExecutableFile )
     std::memcpy( loadedEXEFile.dataDirectoryEntries.data(),
                  loadedEXEFile.rawBytes.data() + dataDirectoryEntriesOffset,
                  numberOfDataDirectories * sizeof( DataDirectoryEntry ) );
+
+    auto const sectionHeaderTableOffset =
+        dataDirectoryEntriesOffset + numberOfDataDirectories * sizeof( DataDirectoryEntry );
+    auto const numberOfSections = loadedEXEFile.ntFileHeader.numberOfSections;
+    for ( auto i = 0; i < numberOfSections; i++ )
+    {
+        auto const& sectionHeader =
+            *reinterpret_cast<SectionHeader const*>( loadedEXEFile.rawBytes.data() +
+                                                     sectionHeaderTableOffset +
+                                                     i * sizeof( SectionHeader ) );
+        auto const sectionName = getEXESectionName( sectionHeader.sectionNameAsNumber );
+
+        loadedEXEFile.sectionHeadersNameToInfo[sectionName] = sectionHeader;
+    }
 
     return loadedEXEFile;
 }
@@ -139,5 +157,32 @@ getImageDataDirectoryDescription( unsigned long const dataDirectoryIndex )
             return "Reserved";
         default:
             return "<Unknown data directory>";
+    }
+}
+
+namespace
+{
+    std::string
+    getEXESectionName( unsigned long long const sectionNameAsNumber )
+    {
+        auto numberFormHasNull = false;
+        for ( auto i = 0; i < sizeof( sectionNameAsNumber ); i++ )
+        {
+            if ( ( reinterpret_cast<char const*>( &sectionNameAsNumber )[i] ) == '\0' )
+            {
+                numberFormHasNull = true;
+                break;
+            }
+        }
+
+        if ( not numberFormHasNull )
+        {
+            return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ),
+                                sizeof( sectionNameAsNumber ) );
+        }
+        else
+        {
+            return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ) );
+        }
     }
 }

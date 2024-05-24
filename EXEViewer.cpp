@@ -2,6 +2,7 @@
 #include "EXEViewer.h"
 
 #include <QApplication>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -33,6 +34,7 @@ EXEViewer::EXEViewer( EXEFile&& loadedEXEFile,
 {
     setUpRawDataTab();
     setUpFileHeadersTab();
+    setUpSectionHeadersTab();
 }
 
 void
@@ -90,6 +92,88 @@ EXEViewer::setUpFileHeadersTab()
     setUpDataDirectoryWidgets( m_loadedEXEFile, dataDirectoryWidgetsContainer );
 }
 
+void
+EXEViewer::setUpSectionHeadersTab()
+{
+    auto sectionHeadersTabRootWidget = new QWidget;
+    addTab( sectionHeadersTabRootWidget, "Section Headers" );
+
+    auto sectionHeadersTabMainLayout = new QGridLayout( sectionHeadersTabRootWidget );
+
+    auto const& sectionHeadersNameToInfo = m_loadedEXEFile.sectionHeadersNameToInfo;
+    auto currentRow = 0;
+    auto currentColumn = 0;
+
+    for ( auto const& [sectionName, sectionHeader] : sectionHeadersNameToInfo )
+    {
+        auto sectionHeaderWidgetsContainer =
+            new QGroupBox( QString::fromStdString( sectionName ) );
+        sectionHeadersTabMainLayout->addWidget( sectionHeaderWidgetsContainer,
+                                                currentRow,
+                                                currentColumn );
+        currentColumn++;
+        if ( currentColumn >= 2 )
+        {
+            currentColumn = 0;
+            currentRow++;
+        }
+
+        auto sectionHeaderWidgetsLayout = new QVBoxLayout( sectionHeaderWidgetsContainer );
+
+        auto sectionSizeLabel =
+            new QLabel( QString( "Size in memory: %1" )
+                            .arg( sectionHeader.sectionSizeInBytesInMemory ) );
+        sectionHeaderWidgetsLayout->addWidget( sectionSizeLabel );
+
+        auto const sectionBaseAddressAsHexString =
+            QString( "%1" ).arg( sectionHeader.sectionBaseAddressInMemory,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto sectionBaseAddressLabel =
+            new QLabel( QString( "Base address in memory: 0x%1" )
+                            .arg( sectionBaseAddressAsHexString ) );
+        sectionHeaderWidgetsLayout->addWidget( sectionBaseAddressLabel );
+
+        auto sizeOfRawDataLabel =
+            new QLabel( QString( "Size of raw data: %1" )
+                            .arg( sectionHeader.sizeOfRawDataInBytes ) );
+        sectionHeaderWidgetsLayout->addWidget( sizeOfRawDataLabel );
+
+        auto const pointerToRawDataAsHexString =
+            QString( "%1" ).arg( sectionHeader.pointerToRawData,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto pointerToRawDataLabel =
+            new QLabel( QString( "Pointer to raw data: 0x%1" )
+                            .arg( pointerToRawDataAsHexString ) );
+        sectionHeaderWidgetsLayout->addWidget( pointerToRawDataLabel );
+
+        auto const pointerToRelocationsAsHexString =
+            QString( "%1" ).arg( sectionHeader.pointerToRelocations,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto pointerToRelocationsLabel =
+            new QLabel( QString( "Pointer to relocations: 0x%1" )
+                            .arg( pointerToRelocationsAsHexString ) );
+        sectionHeaderWidgetsLayout->addWidget( pointerToRelocationsLabel );
+
+        auto const pointerToLineNumbersAsHexString =
+            QString( "%1" ).arg( sectionHeader.pointerToLineNumbers,
+                                 8, 16, QChar( '0' ) ).toUpper();
+        auto pointerToLineNumbersLabel =
+            new QLabel( QString( "Pointer to line numbers: 0x%1" )
+                            .arg( pointerToLineNumbersAsHexString ) );
+        sectionHeaderWidgetsLayout->addWidget( pointerToLineNumbersLabel );
+
+        auto numberOfRelocationsLabel =
+            new QLabel( QString( "Number of relocations: %1" )
+                            .arg( sectionHeader.numberOfRelocations ) );
+        sectionHeaderWidgetsLayout->addWidget( numberOfRelocationsLabel );
+
+        auto numberOfLineNumberEntriesLabel =
+            new QLabel( QString( "Number of line number entries: %1" )
+                            .arg( sectionHeader.numberOfLineNumberEntries ) );
+        sectionHeaderWidgetsLayout->addWidget( numberOfLineNumberEntriesLabel );
+    }
+}
+
 namespace
 {
     void
@@ -127,6 +211,11 @@ namespace
                             .arg( targetMachineArchitectureHexString )
                             .arg( targetMachineArchitectureName ) );
         ntFileHeaderWidgetsLayout->addWidget( targetMachineArchitectureLabel );
+
+        auto numberOfSectionsLabel =
+            new QLabel( QString( "Number of sections: %1" )
+                            .arg( ntFileHeader.numberOfSections ) );
+        ntFileHeaderWidgetsLayout->addWidget( numberOfSectionsLabel );
     }
 
     void
