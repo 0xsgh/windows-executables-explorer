@@ -9,6 +9,25 @@ namespace
 {
     auto const optionalHeaderSig_PE32Plus = 0x20B;
 
+    auto const importTableIdx = 1;
+
+    auto const idataSectionName = std::string( ".idata" );
+
+    struct ImportDirectoryTableEntry
+    {
+        unsigned long    importLookupTableRVA;
+        unsigned long    timestamp;
+        unsigned long    forwarderChainIdx;
+        unsigned long    namestringRVA;
+        unsigned long    importAddressTableRVA;
+    };
+
+    struct ImportLookupTableEntry64
+    {
+        unsigned long long    ordinalNumberOrNameTableRVA: 63;
+        unsigned long long    isOrdinal: 1;
+    };
+
     std::string
     getEXESectionName( unsigned long long const sectionNameAsNumber );
 }
@@ -95,6 +114,52 @@ loadEXEFile( std::string const& pathOfExecutableFile )
         std::memcpy( loadedEXEFile.sectionNameToRawData.at( sectionName ).data(),
                      loadedEXEFile.rawBytes.data() + rawDataOffset,
                      rawDataSize );
+    }
+
+    auto const& idataRawBytes = loadedEXEFile.sectionNameToRawData.at( idataSectionName ).data();
+    auto const& idataSectionHeader = loadedEXEFile.sectionHeadersNameToInfo.at( idataSectionName );
+    auto const idataSectionRVA = idataSectionHeader.sectionBaseAddressInMemory;
+    auto const importDirectoryTableOffset =
+        loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA - idataSectionRVA;
+    auto const& importDirectoryTable =
+        reinterpret_cast<ImportDirectoryTableEntry const*>( idataRawBytes +
+                                                            importDirectoryTableOffset );
+    for ( auto i = 0;; i++ )
+    {
+        if (    importDirectoryTable[i].importLookupTableRVA == 0
+            and importDirectoryTable[i].timestamp == 0
+            and importDirectoryTable[i].forwarderChainIdx == 0
+            and importDirectoryTable[i].namestringRVA == 0
+            and importDirectoryTable[i].importAddressTableRVA == 0 )
+        {
+            break;
+        }
+
+        auto const importedDLLName =
+            std::string( reinterpret_cast<char const*>( idataRawBytes +
+                                                        importDirectoryTable[i].namestringRVA -
+                                                        idataSectionRVA ) );
+
+        auto const importLookupTableOffset =
+            importDirectoryTable[i].importLookupTableRVA - idataSectionRVA;
+        auto const& importLookupTable =
+            reinterpret_cast<ImportLookupTableEntry64 const*>( idataRawBytes +
+                                                               importLookupTableOffset );
+        for ( auto j = 0;; j++ )
+        {
+            if (     importLookupTable[j].ordinalNumberOrNameTableRVA == 0
+                 and importLookupTable[j].isOrdinal == 0 )
+            {
+                break;
+            }
+
+            auto const importedFunctionName =
+                std::string( reinterpret_cast<char const*>( idataRawBytes +
+                                                            importLookupTable[j].ordinalNumberOrNameTableRVA +
+                                                            sizeof( unsigned short ) -
+                                                            idataSectionRVA ) );
+            loadedEXEFile.importedDLLToImportedFunctions[importedDLLName].push_back( importedFunctionName );
+        }
     }
 
     return loadedEXEFile;

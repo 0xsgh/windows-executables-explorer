@@ -66,6 +66,7 @@ struct EXEFile
     std::vector<DataDirectoryEntry>                      dataDirectoryEntries;
     std::map<std::string, SectionHeader>                 sectionHeadersNameToInfo;
     std::map<std::string, std::vector<unsigned char>>    sectionNameToRawData;
+    std::map<std::string, std::vector<std::string>>      importedDLLToImportedFunctions;
 };
 
 EXEFile
