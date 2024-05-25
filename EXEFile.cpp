@@ -239,6 +239,12 @@ getImageDataDirectoryDescription( unsigned long const dataDirectoryIndex )
     }
 }
 
+bool
+hasImportTable( EXEFile const& exeFile )
+{
+    return exeFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA != 0;
+}
+
 namespace
 {
     std::string

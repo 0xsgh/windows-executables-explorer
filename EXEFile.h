@@ -81,4 +81,7 @@ getPESignatureName( unsigned short const peSignature );
 std::string
 getImageDataDirectoryDescription( unsigned long const dataDirectoryIndex );
 
+bool
+hasImportTable( EXEFile const& exeFile );
+
 #endif // EXEFILE_H

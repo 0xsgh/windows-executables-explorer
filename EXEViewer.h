@@ -24,6 +24,9 @@ private:
     void
     setUpSectionHeadersTab();
 
+    void
+    setUpImportsTab();
+
 private:
     EXEFile    m_loadedEXEFile;
 };

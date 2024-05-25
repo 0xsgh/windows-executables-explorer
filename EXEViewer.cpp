@@ -1,10 +1,12 @@
 
+#include "EXEFile.h"
 #include "EXEViewer.h"
 
 #include <QApplication>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
+#include <QListWidget>
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
 
@@ -35,6 +37,7 @@ EXEViewer::EXEViewer( EXEFile&& loadedEXEFile,
     setUpRawDataTab();
     setUpFileHeadersTab();
     setUpSectionHeadersTab();
+    setUpImportsTab();
 }
 
 void
@@ -171,6 +174,40 @@ EXEViewer::setUpSectionHeadersTab()
             new QLabel( QString( "Number of line number entries: %1" )
                             .arg( sectionHeader.numberOfLineNumberEntries ) );
         sectionHeaderWidgetsLayout->addWidget( numberOfLineNumberEntriesLabel );
+    }
+}
+
+void
+EXEViewer::setUpImportsTab()
+{
+    auto importsTabRootWidget = new QWidget;
+    addTab( importsTabRootWidget, "Imports" );
+
+    auto importsTabMainLayout = new QVBoxLayout( importsTabRootWidget );
+
+    auto importedDLLsViewerContainer = new QGroupBox( "Imported DLLs" );
+    importsTabMainLayout->addWidget( importedDLLsViewerContainer );
+
+    auto importedFunctionsViewerContainer = new QGroupBox( "Imported Functions" );
+    importsTabMainLayout->addWidget( importedFunctionsViewerContainer );
+
+    auto importedDLLsViewerLayout = new QVBoxLayout( importedDLLsViewerContainer );
+    auto importedFunctionsViewerLayout = new QVBoxLayout( importedFunctionsViewerContainer );
+
+    auto importedDLLsViewer = new QListWidget;
+    importedDLLsViewerLayout->addWidget( importedDLLsViewer );
+
+    auto importedFunctionsViewer = new QListWidget;
+    importedFunctionsViewerLayout->addWidget( importedFunctionsViewer );
+
+    for ( auto const& [importedDLLName, importedFunctions] : m_loadedEXEFile.importedDLLToImportedFunctions )
+    {
+        importedDLLsViewer->addItem( QString::fromStdString( importedDLLName ) );
+
+        for ( auto const& importedFunction : importedFunctions )
+        {
+            importedFunctionsViewer->addItem( QString::fromStdString( importedFunction ) );
+        }
     }
 }
 
