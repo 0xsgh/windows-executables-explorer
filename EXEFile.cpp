@@ -81,6 +81,20 @@ loadEXEFile( std::string const& pathOfExecutableFile )
         auto const sectionName = getEXESectionName( sectionHeader.sectionNameAsNumber );
 
         loadedEXEFile.sectionHeadersNameToInfo[sectionName] = sectionHeader;
+
+        auto const rawDataOffset = sectionHeader.pointerToRawData;
+        auto const rawDataSize = sectionHeader.sizeOfRawDataInBytes;
+
+        if ( rawDataOffset + rawDataSize > loadedEXEFile.rawBytes.size() )
+        {
+            throw std::runtime_error{ "Section '" + sectionName +
+                                      "' has invalid raw data offset and/or size." };
+        }
+
+        loadedEXEFile.sectionNameToRawData[sectionName].resize( rawDataSize );
+        std::memcpy( loadedEXEFile.sectionNameToRawData.at( sectionName ).data(),
+                     loadedEXEFile.rawBytes.data() + rawDataOffset,
+                     rawDataSize );
     }
 
     return loadedEXEFile;

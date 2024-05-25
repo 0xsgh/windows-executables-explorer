@@ -282,6 +282,11 @@ namespace
             new QLabel( QString( "Preferred base address of image: 0x%1" )
                             .arg( imageBaseAddressHexString ) );
         ntOptionalHeaderWidgetsLayout->addWidget( preferredBaseAddressOfImageLabel );
+
+        auto numberOfDataDirectoriesLabel =
+            new QLabel( QString( "Number of data directories: %1" )
+                            .arg( optionalHeader.numberOfDataDirectories ) );
+        ntOptionalHeaderWidgetsLayout->addWidget( numberOfDataDirectoriesLabel );
     }
 
     void

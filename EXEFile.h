@@ -58,13 +58,14 @@ struct SectionHeader
 
 struct EXEFile
 {
-    std::vector<unsigned char>              rawBytes;
-    DOSHeader                               dosHeader;
-    unsigned long                           ntSignature;
-    NTFileHeader                            ntFileHeader;
-    NTOptionalHeader64                      ntOptionalHeader;
-    std::vector<DataDirectoryEntry>         dataDirectoryEntries;
-    std::map<std::string, SectionHeader>    sectionHeadersNameToInfo;
+    std::vector<unsigned char>                           rawBytes;
+    DOSHeader                                            dosHeader;
+    unsigned long                                        ntSignature;
+    NTFileHeader                                         ntFileHeader;
+    NTOptionalHeader64                                   ntOptionalHeader;
+    std::vector<DataDirectoryEntry>                      dataDirectoryEntries;
+    std::map<std::string, SectionHeader>                 sectionHeadersNameToInfo;
+    std::map<std::string, std::vector<unsigned char>>    sectionNameToRawData;
 };
 
 EXEFile
