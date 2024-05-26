@@ -55,7 +55,8 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
         {
             auto pathOfExecutableFile = fileURL.toLocalFile();
 
-            if ( not pathOfExecutableFile.endsWith( ".exe" ) )
+            if ( not pathOfExecutableFile.endsWith( ".exe" ) and
+                 not pathOfExecutableFile.endsWith( ".dll" ) )
             {
                 continue;
             }
@@ -63,7 +64,8 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
             auto newListItem = new QListWidgetItem( pathOfExecutableFile );
             newListItem->setToolTip( pathOfExecutableFile );
 
-            if ( pathOfExecutableFile.endsWith( ".exe" ) )
+            if ( pathOfExecutableFile.endsWith( ".exe" ) or
+                 pathOfExecutableFile.endsWith( ".dll" ) )
             {
                 auto loadedEXEFile = loadEXEFile( pathOfExecutableFile.toStdString() );
                 m_artifactViewersStack->addWidget( new EXEViewer( std::move( loadedEXEFile ) ) );

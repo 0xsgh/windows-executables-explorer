@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <optional>
 #include <string>
 
 namespace
@@ -10,8 +11,6 @@ namespace
     auto const optionalHeaderSig_PE32Plus = 0x20B;
 
     auto const importTableIdx = 1;
-
-    auto const idataSectionName = std::string( ".idata" );
 
     struct ImportDirectoryTableEntry
     {
@@ -30,6 +29,10 @@ namespace
 
     std::string
     getEXESectionName( unsigned long long const sectionNameAsNumber );
+
+    std::optional<std::string>
+    getNameOfSectionContainingRVA( EXEFile const& exeFile,
+                                   unsigned long long const rvaOfInterest );
 }
 
 EXEFile
@@ -116,49 +119,61 @@ loadEXEFile( std::string const& pathOfExecutableFile )
                      rawDataSize );
     }
 
-    auto const& idataRawBytes = loadedEXEFile.sectionNameToRawData.at( idataSectionName ).data();
-    auto const& idataSectionHeader = loadedEXEFile.sectionHeadersNameToInfo.at( idataSectionName );
-    auto const idataSectionRVA = idataSectionHeader.sectionBaseAddressInMemory;
-    auto const importDirectoryTableOffset =
-        loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA - idataSectionRVA;
-    auto const& importDirectoryTable =
-        reinterpret_cast<ImportDirectoryTableEntry const*>( idataRawBytes +
-                                                            importDirectoryTableOffset );
-    for ( auto i = 0;; i++ )
+    if ( hasImportTable( loadedEXEFile ) )
     {
-        if (    importDirectoryTable[i].importLookupTableRVA == 0
-            and importDirectoryTable[i].timestamp == 0
-            and importDirectoryTable[i].forwarderChainIdx == 0
-            and importDirectoryTable[i].namestringRVA == 0
-            and importDirectoryTable[i].importAddressTableRVA == 0 )
+        auto hostSectionName =
+            getNameOfSectionContainingRVA( loadedEXEFile,
+                                           loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA );
+
+        if ( not hostSectionName )
         {
-            break;
+            throw std::runtime_error{ "Import table is not in any section." };
         }
 
-        auto const importedDLLName =
-            std::string( reinterpret_cast<char const*>( idataRawBytes +
-                                                        importDirectoryTable[i].namestringRVA -
-                                                        idataSectionRVA ) );
-
-        auto const importLookupTableOffset =
-            importDirectoryTable[i].importLookupTableRVA - idataSectionRVA;
-        auto const& importLookupTable =
-            reinterpret_cast<ImportLookupTableEntry64 const*>( idataRawBytes +
-                                                               importLookupTableOffset );
-        for ( auto j = 0;; j++ )
+        auto const& idataRawBytes = loadedEXEFile.sectionNameToRawData.at( *hostSectionName ).data();
+        auto const& idataSectionHeader = loadedEXEFile.sectionHeadersNameToInfo.at( *hostSectionName );
+        auto const idataSectionRVA = idataSectionHeader.sectionBaseAddressInMemory;
+        auto const importDirectoryTableOffset =
+            loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA - idataSectionRVA;
+        auto const& importDirectoryTable =
+            reinterpret_cast<ImportDirectoryTableEntry const*>( idataRawBytes +
+                                                                importDirectoryTableOffset );
+        for ( auto i = 0;; i++ )
         {
-            if (     importLookupTable[j].ordinalNumberOrNameTableRVA == 0
-                 and importLookupTable[j].isOrdinal == 0 )
+            if (    importDirectoryTable[i].importLookupTableRVA == 0
+                and importDirectoryTable[i].timestamp == 0
+                and importDirectoryTable[i].forwarderChainIdx == 0
+                and importDirectoryTable[i].namestringRVA == 0
+                and importDirectoryTable[i].importAddressTableRVA == 0 )
             {
                 break;
             }
 
-            auto const importedFunctionName =
+            auto const importedDLLName =
                 std::string( reinterpret_cast<char const*>( idataRawBytes +
-                                                            importLookupTable[j].ordinalNumberOrNameTableRVA +
-                                                            sizeof( unsigned short ) -
+                                                            importDirectoryTable[i].namestringRVA -
                                                             idataSectionRVA ) );
-            loadedEXEFile.importedDLLToImportedFunctions[importedDLLName].push_back( importedFunctionName );
+
+            auto const importLookupTableOffset =
+                importDirectoryTable[i].importLookupTableRVA - idataSectionRVA;
+            auto const& importLookupTable =
+                reinterpret_cast<ImportLookupTableEntry64 const*>( idataRawBytes +
+                                                                importLookupTableOffset );
+            for ( auto j = 0;; j++ )
+            {
+                if (     importLookupTable[j].ordinalNumberOrNameTableRVA == 0
+                    and importLookupTable[j].isOrdinal == 0 )
+                {
+                    break;
+                }
+
+                auto const importedFunctionName =
+                    std::string( reinterpret_cast<char const*>( idataRawBytes +
+                                                                importLookupTable[j].ordinalNumberOrNameTableRVA +
+                                                                sizeof( unsigned short ) -
+                                                                idataSectionRVA ) );
+                loadedEXEFile.importedDLLToImportedFunctions[importedDLLName].push_back( importedFunctionName );
+            }
         }
     }
 
@@ -269,5 +284,21 @@ namespace
         {
             return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ) );
         }
+    }
+
+    std::optional<std::string>
+    getNameOfSectionContainingRVA( EXEFile const& exeFile,
+                                   unsigned long long const rvaOfInterest )
+    {
+        for ( auto const& [sectionName, sectionHeader] : exeFile.sectionHeadersNameToInfo )
+        {
+            if (    rvaOfInterest >= sectionHeader.sectionBaseAddressInMemory
+                and rvaOfInterest < sectionHeader.sectionBaseAddressInMemory + sectionHeader.sectionSizeInBytesInMemory )
+            {
+                return sectionName;
+            }
+        }
+
+        return std::nullopt;
     }
 }
