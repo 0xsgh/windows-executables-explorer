@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPlainTextEdit>
+#include <QTableWidget>
 #include <QVBoxLayout>
 
 namespace
@@ -38,6 +39,7 @@ EXEViewer::EXEViewer( EXEFile&& loadedEXEFile,
     setUpFileHeadersTab();
     setUpSectionHeadersTab();
     setUpImportsTab();
+    setUpExportsTab();
 }
 
 void
@@ -209,6 +211,33 @@ EXEViewer::setUpImportsTab()
             importedFunctionsViewer->addItem( QString::fromStdString( importedFunction ) );
         }
     }
+}
+
+void
+EXEViewer::setUpExportsTab()
+{
+    auto exportedFunctionsViewerContainer = new QGroupBox( "Exported Functions" );
+    addTab( exportedFunctionsViewerContainer, "Exports" );
+
+    auto exportedFunctionsViewerLayout = new QVBoxLayout( exportedFunctionsViewerContainer );
+
+    auto exportedFunctionsViewer = new QTableWidget;
+    exportedFunctionsViewerLayout->addWidget( exportedFunctionsViewer );
+
+    exportedFunctionsViewer->setColumnCount( 1 );
+    exportedFunctionsViewer->setHorizontalHeaderLabels( { "Function Name" } );
+
+    exportedFunctionsViewer->setRowCount( m_loadedEXEFile.exportedFunctions.size() );
+
+    for ( auto row = 0; auto const& exportedFunction : m_loadedEXEFile.exportedFunctions )
+    {
+        auto tableEntry = new QTableWidgetItem( QString::fromStdString( exportedFunction.name ) );
+        tableEntry->setFlags( tableEntry->flags() & ~Qt::ItemIsEditable );
+
+        exportedFunctionsViewer->setItem( row++, 0, tableEntry );
+    }
+
+    exportedFunctionsViewer->resizeColumnsToContents();
 }
 
 namespace

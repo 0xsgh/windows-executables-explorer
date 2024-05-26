@@ -27,6 +27,9 @@ private:
     void
     setUpImportsTab();
 
+    void
+    setUpExportsTab();
+
 private:
     EXEFile    m_loadedEXEFile;
 };

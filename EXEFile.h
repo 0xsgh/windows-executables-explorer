@@ -56,6 +56,11 @@ struct SectionHeader
     unsigned long         sectionCharacteristics;
 };
 
+struct ExportedFunction
+{
+    std::string    name;
+};
+
 struct EXEFile
 {
     std::vector<unsigned char>                           rawBytes;
@@ -67,6 +72,7 @@ struct EXEFile
     std::map<std::string, SectionHeader>                 sectionHeadersNameToInfo;
     std::map<std::string, std::vector<unsigned char>>    sectionNameToRawData;
     std::map<std::string, std::vector<std::string>>      importedDLLToImportedFunctions;
+    std::vector<ExportedFunction>                        exportedFunctions;
 };
 
 EXEFile
@@ -83,5 +89,8 @@ getImageDataDirectoryDescription( unsigned long const dataDirectoryIndex );
 
 bool
 hasImportTable( EXEFile const& exeFile );
+
+bool
+hasExportTable( EXEFile const& exeFile );
 
 #endif // EXEFILE_H
