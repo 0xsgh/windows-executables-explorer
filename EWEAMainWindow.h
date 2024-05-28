@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QPointer>
 
+#include <map>
 #include <vector>
 
 class QDragEnterEvent;
@@ -26,10 +27,16 @@ private:
     void
     dropEvent( QDropEvent* dropEvent ) override;
 
+    void
+    setUpLoadedFilesList();
+
+    void
+    unloadSelectedArtifacts();
+
 private:
     QPointer<QListWidget>                m_loadedFilesList;
-    std::vector<QPointer<QTabWidget>>    m_executableArtifactViewers;
     QPointer<QStackedWidget>             m_artifactViewersStack;
+    std::map<std::string, QTabWidget*>   m_artifactPathToViewerMap;
 };
 
 #endif // EWEAMAINWINDOW_H

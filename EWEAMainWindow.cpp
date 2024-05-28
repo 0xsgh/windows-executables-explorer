@@ -6,6 +6,8 @@
 #include <QDragEnterEvent>
 #include <QHBoxLayout>
 #include <QListWidget>
+#include <QMenu>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -22,7 +24,7 @@ EWEAMainWindow::EWEAMainWindow( QWidget* parentWidget )
                                            centralWidget() );
     mainLayout->addWidget( topLevelSplitter );
 
-    m_loadedFilesList = new QListWidget;
+    setUpLoadedFilesList();
     topLevelSplitter->addWidget( m_loadedFilesList );
 
     m_artifactViewersStack = new QStackedWidget;
@@ -68,10 +70,82 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
                  pathOfExecutableFile.endsWith( ".dll" ) )
             {
                 auto loadedEXEFile = loadEXEFile( pathOfExecutableFile.toStdString() );
-                m_artifactViewersStack->addWidget( new EXEViewer( std::move( loadedEXEFile ) ) );
+                auto artifactViewer = new EXEViewer( std::move( loadedEXEFile ) );
+
+                m_artifactViewersStack->addWidget( artifactViewer );
+                m_artifactPathToViewerMap[pathOfExecutableFile.toStdString()] = artifactViewer;
             }
 
             m_loadedFilesList->addItem( newListItem );
         }
+    }
+}
+
+void
+EWEAMainWindow::setUpLoadedFilesList()
+{
+    m_loadedFilesList = new QListWidget;
+
+    m_loadedFilesList->setSelectionMode( QAbstractItemView::ExtendedSelection );
+
+    connect( m_loadedFilesList, &QListWidget::itemActivated,
+             [this]( QListWidgetItem* activatedItem )
+             {
+                auto pathOfExecutableFile = activatedItem->text().toStdString();
+
+                if ( m_artifactPathToViewerMap.contains( pathOfExecutableFile ) )
+                {
+                    m_artifactViewersStack->setCurrentWidget( m_artifactPathToViewerMap.at( pathOfExecutableFile ) );
+                }
+             } );
+
+    m_loadedFilesList->setContextMenuPolicy( Qt::CustomContextMenu );
+    connect( m_loadedFilesList, &QListWidget::customContextMenuRequested,
+             [this]( QPoint const& mousePosition )
+             {
+                auto contextMenu = QMenu( this );
+
+                auto unloadFilesAction = contextMenu.addAction( "Unload selection" );
+
+                connect( unloadFilesAction, &QAction::triggered,
+                         [this]()
+                         {
+                            auto userResponse =
+                                QMessageBox::question( this,
+                                                       "Unload selection",
+                                                       "Are you sure you want to unload the selected files?" );
+
+                            if ( userResponse == QMessageBox::Yes )
+                            {
+                                unloadSelectedArtifacts();
+                            }
+                         } );
+
+                if ( m_loadedFilesList->selectedItems().empty() )
+                {
+                    unloadFilesAction->setEnabled( false );
+                }
+
+                contextMenu.exec( m_loadedFilesList->mapToGlobal( mousePosition ) );
+             } );
+}
+
+void
+EWEAMainWindow::unloadSelectedArtifacts()
+{
+    for ( const auto& selectedItem : m_loadedFilesList->selectedItems() )
+    {
+        auto pathOfExecutableFile = selectedItem->text().toStdString();
+
+        if ( m_artifactPathToViewerMap.contains( pathOfExecutableFile ) )
+        {
+            auto artifactViewer =
+                m_artifactPathToViewerMap.at( pathOfExecutableFile );
+
+            artifactViewer->deleteLater();
+            m_artifactPathToViewerMap.erase( pathOfExecutableFile );
+        }
+
+        delete selectedItem;
     }
 }

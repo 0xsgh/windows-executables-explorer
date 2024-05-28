@@ -16,9 +16,6 @@ public:
 
 private:
     void
-    setUpRawDataTab();
-
-    void
     setUpFileHeadersTab();
 
     void
