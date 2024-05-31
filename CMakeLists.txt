@@ -11,6 +11,7 @@ add_executable(ewea
                EWEAMainWindow.cpp
                EXEFile.cpp
                EXEViewer.cpp
+               PEFile.cpp
               )
 set_target_properties(ewea PROPERTIES CXX_STANDARD 20)
 target_include_directories(ewea PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

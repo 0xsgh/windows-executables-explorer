@@ -1,6 +1,7 @@
 
 #include "EXEFile.h"
 #include "EXEViewer.h"
+#include "PEFile.h"
 
 #include <QApplication>
 #include <QGridLayout>
@@ -220,10 +221,10 @@ namespace
     {
         auto dosHeaderWidgetsLayout = new QVBoxLayout( dosHeaderWidgetsContainer );
 
-        auto offsetOfNTFileHeaderLabel =
-            new QLabel( QString( "NT File Header offset: %1" )
-                            .arg( loadedEXEFile.dosHeader.offsetOfNTFileHeader ) );
-        dosHeaderWidgetsLayout->addWidget( offsetOfNTFileHeaderLabel );
+        auto offsetOfNTSignatureLabel =
+            new QLabel( QString( "NT signature offset: %1" )
+                            .arg( loadedEXEFile.dosHeader.offsetOfNTSignature ) );
+        dosHeaderWidgetsLayout->addWidget( offsetOfNTSignatureLabel );
     }
 
     void
@@ -243,7 +244,7 @@ namespace
             QString( "%1" ).arg( ntFileHeader.targetMachineArchitecture,
                                  4, 16, QChar( '0' ) ).toUpper();
         auto const targetMachineArchitectureName =
-            QString::fromStdString( getMachineArchitectureName( ntFileHeader.targetMachineArchitecture ) );
+            QString::fromStdString( PE::getMachineArchitectureName( ntFileHeader.targetMachineArchitecture ) );
         auto targetMachineArchitectureLabel =
             new QLabel( QString( "Target machine architecture: 0x%1 (%2)" )
                             .arg( targetMachineArchitectureHexString )
@@ -269,7 +270,7 @@ namespace
             QString( "%1" ).arg( optionalHeader.peSignature,
                                  0, 16, QChar( '0' ) ).toUpper();
         auto const peSignatureName =
-            QString::fromStdString( getPESignatureName( optionalHeader.peSignature ) );
+            QString::fromStdString( PE::getPESignatureName( optionalHeader.peSignature ) );
         auto peSignatureLabel =
             new QLabel( QString( "PE signature: 0x%1 (%2)" )
                             .arg( peSignatureHexString )
@@ -341,7 +342,7 @@ namespace
             auto const& dataDirectoryEntry = dataDirectoryEntries[ i ];
 
             auto const dataDirectoryDescription =
-                QString::fromStdString( getImageDataDirectoryDescription( i ) );
+                QString::fromStdString( PE::getImageDataDirectoryDescription( i ) );
 
             auto const dataDirectoryRVAHexString =
                 QString( "%1" ).arg( dataDirectoryEntry.dataDirectoryRVA,
