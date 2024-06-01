@@ -9,9 +9,9 @@ set(CMAKE_AUTOMOC ON)
 add_executable(ewea
                main.cpp
                EWEAMainWindow.cpp
-               EXEFile.cpp
                EXEViewer.cpp
-               PEFile.cpp
+               PEFiles.cpp
+               PEFormat.cpp
               )
 set_target_properties(ewea PROPERTIES CXX_STANDARD 20)
 target_include_directories(ewea PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -2,7 +2,7 @@
 #ifndef EXEVIEWER_H
 #define EXEVIEWER_H
 
-#include "EXEFile.h"
+#include "PEFiles.h"
 
 #include <QTabWidget>
 
