@@ -81,6 +81,10 @@ namespace PE
     extractSectionHeaders( unsigned char const* rawBytesFromStartOfSectionHeaders,
                            int const numberOfSections );
 
+    std::map<std::string, std::vector<SectionHeader>>
+    extractSectionHeadersFromOBJFile( unsigned char const* rawBytesFromStartOfSectionHeaders,
+                                      int const numberOfSections );
+
     std::map<std::string, std::vector<unsigned char>>
     extractRawSectionContents( unsigned char const* rawBytesFromStartOfFile,
                                std::map<std::string, SectionHeader> const& sectionHeaders );

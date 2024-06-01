@@ -1,6 +1,7 @@
 
 #include "EWEAMainWindow.h"
 #include "EXEViewer.h"
+#include "OBJViewer.h"
 #include "PEFiles.h"
 
 #include <QDragEnterEvent>
@@ -58,7 +59,8 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
             auto pathOfExecutableFile = fileURL.toLocalFile();
 
             if ( not pathOfExecutableFile.endsWith( ".exe" ) and
-                 not pathOfExecutableFile.endsWith( ".dll" ) )
+                 not pathOfExecutableFile.endsWith( ".dll" ) and
+                 not pathOfExecutableFile.endsWith( ".obj" ) )
             {
                 continue;
             }
@@ -71,6 +73,14 @@ EWEAMainWindow::dropEvent( QDropEvent* dropEvent )
             {
                 auto loadedEXEFile = loadEXEFile( pathOfExecutableFile.toStdString() );
                 auto artifactViewer = new EXEViewer( std::move( loadedEXEFile ) );
+
+                m_artifactViewersStack->addWidget( artifactViewer );
+                m_artifactPathToViewerMap[pathOfExecutableFile.toStdString()] = artifactViewer;
+            }
+            else if ( pathOfExecutableFile.endsWith( ".obj" ) )
+            {
+                auto loadedOBJFile = loadOBJFile( pathOfExecutableFile.toStdString() );
+                auto artifactViewer = new OBJViewer( std::move( loadedOBJFile ) );
 
                 m_artifactViewersStack->addWidget( artifactViewer );
                 m_artifactPathToViewerMap[pathOfExecutableFile.toStdString()] = artifactViewer;

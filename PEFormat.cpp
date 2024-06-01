@@ -146,6 +146,25 @@ namespace PE
         return sectionNameToHeader;
     }
 
+    std::map<std::string, std::vector<SectionHeader>>
+    extractSectionHeadersFromOBJFile( unsigned char const* rawBytesFromStartOfSectionHeaders,
+                                      int const numberOfSections )
+    {
+        auto sectionNameToHeader = std::map<std::string, std::vector<SectionHeader>>{};
+
+        for ( auto i = 0; i < numberOfSections; i++ )
+        {
+            auto const& sectionHeader =
+                *reinterpret_cast<SectionHeader const*>( rawBytesFromStartOfSectionHeaders +
+                                                         i * sizeof( SectionHeader ) );
+            auto const sectionName = getSectionName( sectionHeader.sectionNameAsNumber );
+
+            sectionNameToHeader[sectionName].push_back( sectionHeader );
+        }
+
+        return sectionNameToHeader;
+    }
+
     std::map<std::string, std::vector<unsigned char>>
     extractRawSectionContents( unsigned char const* rawBytesFromStartOfFile,
                                std::map<std::string, SectionHeader> const& sectionHeaders )
