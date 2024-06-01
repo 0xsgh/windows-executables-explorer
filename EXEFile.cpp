@@ -9,46 +9,6 @@
 namespace
 {
     auto const optionalHeaderSig_PE32Plus = 0x20B;
-
-    auto const exportTableIdx = 0;
-    auto const importTableIdx = 1;
-
-    struct ImportDirectoryTableEntry
-    {
-        unsigned long    importLookupTableRVA;
-        unsigned long    timestamp;
-        unsigned long    forwarderChainIdx;
-        unsigned long    namestringRVA;
-        unsigned long    importAddressTableRVA;
-    };
-
-    struct ImportLookupTableEntry64
-    {
-        unsigned long long    ordinalNumberOrNameTableRVA: 63;
-        unsigned long long    isOrdinal: 1;
-    };
-
-    struct ExportDirectoryTableEntry
-    {
-        unsigned long     _reserved1;
-        unsigned long     timestamp;
-        unsigned short    dllMajorVersion;
-        unsigned short    dllMinorVersion;
-        unsigned long     namestringRVA;
-        unsigned long     baseOrdinalNumber;
-        unsigned long     numberOfExportAddressTableEntries;
-        unsigned long     numberOfNamePointerTableEntries;
-        unsigned long     exportAddressTableRVA;
-        unsigned long     namePointerTableRVA;
-        unsigned long     ordinalTableRVA;
-    };
-
-    std::string
-    getEXESectionName( unsigned long long const sectionNameAsNumber );
-
-    std::optional<std::string>
-    getNameOfSectionContainingRVA( EXEFile const& exeFile,
-                                   unsigned long long const rvaOfInterest );
 }
 
 EXEFile
@@ -103,186 +63,32 @@ loadEXEFile( std::string const& pathOfExecutableFile )
         dataDirectoryEntriesOffset +
         loadedEXEFile.dataDirectoryEntries.size() * sizeof( PE::DataDirectoryEntry );
     auto const numberOfSections = loadedEXEFile.ntFileHeader.numberOfSections;
-    for ( auto i = 0; i < numberOfSections; i++ )
-    {
-        auto const& sectionHeader =
-            *reinterpret_cast<PE::SectionHeader const*>( loadedEXEFile.rawBytes.data() +
-                                                         sectionHeaderTableOffset +
-                                                         i * sizeof( PE::SectionHeader ) );
-        auto const sectionName = getEXESectionName( sectionHeader.sectionNameAsNumber );
-
-        loadedEXEFile.sectionHeadersNameToInfo[sectionName] = sectionHeader;
-
-        auto const rawDataOffset = sectionHeader.pointerToRawData;
-        auto const rawDataSize = sectionHeader.sizeOfRawDataInBytes;
-
-        if ( rawDataOffset + rawDataSize > loadedEXEFile.rawBytes.size() )
-        {
-            throw std::runtime_error{ "Section '" + sectionName +
-                                      "' has invalid raw data offset and/or size." };
-        }
-
-        loadedEXEFile.sectionNameToRawData[sectionName].resize( rawDataSize );
-        std::memcpy( loadedEXEFile.sectionNameToRawData.at( sectionName ).data(),
-                     loadedEXEFile.rawBytes.data() + rawDataOffset,
-                     rawDataSize );
-    }
 
     loadedEXEFile.sectionHeadersNameToInfo =
         PE::extractSectionHeaders( loadedEXEFile.rawBytes.data() + sectionHeaderTableOffset,
                                    numberOfSections );
 
-    if ( hasImportTable( loadedEXEFile ) )
+    loadedEXEFile.sectionNameToRawData =
+        PE::extractRawSectionContents( loadedEXEFile.rawBytes.data(),
+                                       loadedEXEFile.sectionHeadersNameToInfo );
+
+    auto importedDLLToImportedFunctions =
+        PE::extractImportedFunctionsInfo( loadedEXEFile.dataDirectoryEntries,
+                                          loadedEXEFile.sectionHeadersNameToInfo,
+                                          loadedEXEFile.sectionNameToRawData );
+    if ( importedDLLToImportedFunctions )
     {
-        auto hostSectionName =
-            getNameOfSectionContainingRVA( loadedEXEFile,
-                                           loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA );
-
-        if ( not hostSectionName )
-        {
-            throw std::runtime_error{ "Import table is not in any section." };
-        }
-
-        auto const& hostSectionRawBytes = loadedEXEFile.sectionNameToRawData.at( *hostSectionName ).data();
-        auto const& hostSectionHeader = loadedEXEFile.sectionHeadersNameToInfo.at( *hostSectionName );
-        auto const hostSectionRVA = hostSectionHeader.sectionBaseAddressInMemory;
-        auto const importDirectoryTableOffset =
-            loadedEXEFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA - hostSectionRVA;
-        auto const& importDirectoryTable =
-            reinterpret_cast<ImportDirectoryTableEntry const*>( hostSectionRawBytes +
-                                                                importDirectoryTableOffset );
-        for ( auto i = 0;; i++ )
-        {
-            if (    importDirectoryTable[i].importLookupTableRVA == 0
-                and importDirectoryTable[i].timestamp == 0
-                and importDirectoryTable[i].forwarderChainIdx == 0
-                and importDirectoryTable[i].namestringRVA == 0
-                and importDirectoryTable[i].importAddressTableRVA == 0 )
-            {
-                break;
-            }
-
-            auto const importedDLLName =
-                std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
-                                                            importDirectoryTable[i].namestringRVA -
-                                                            hostSectionRVA ) );
-
-            auto const importLookupTableOffset =
-                importDirectoryTable[i].importLookupTableRVA - hostSectionRVA;
-            auto const& importLookupTable =
-                reinterpret_cast<ImportLookupTableEntry64 const*>( hostSectionRawBytes +
-                                                                importLookupTableOffset );
-            for ( auto j = 0;; j++ )
-            {
-                if (     importLookupTable[j].ordinalNumberOrNameTableRVA == 0
-                    and importLookupTable[j].isOrdinal == 0 )
-                {
-                    break;
-                }
-
-                auto const importedFunctionName =
-                    std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
-                                                                importLookupTable[j].ordinalNumberOrNameTableRVA +
-                                                                sizeof( unsigned short ) -
-                                                                hostSectionRVA ) );
-                loadedEXEFile.importedDLLToImportedFunctions[importedDLLName].push_back( importedFunctionName );
-            }
-        }
+        loadedEXEFile.importedDLLToImportedFunctions = *importedDLLToImportedFunctions;
     }
 
-    if ( hasExportTable( loadedEXEFile ) )
+    auto exportedFunctionsInfo =
+        PE::extractExportedFunctionsInfo( loadedEXEFile.dataDirectoryEntries,
+                                          loadedEXEFile.sectionHeadersNameToInfo,
+                                          loadedEXEFile.sectionNameToRawData );
+    if ( exportedFunctionsInfo )
     {
-        auto hostSectionName =
-            getNameOfSectionContainingRVA( loadedEXEFile,
-                                           loadedEXEFile.dataDirectoryEntries[exportTableIdx].dataDirectoryRVA );
-
-        if ( not hostSectionName )
-        {
-            throw std::runtime_error{ "Export table is not in any section." };
-        }
-
-        auto const& hostSectionRawBytes =
-            loadedEXEFile.sectionNameToRawData.at( *hostSectionName ).data();
-        auto const& hostSectionRVA =
-            loadedEXEFile.sectionHeadersNameToInfo.at( *hostSectionName ).sectionBaseAddressInMemory;
-        auto const exportDirectoryTableOffset =
-            loadedEXEFile.dataDirectoryEntries[exportTableIdx].dataDirectoryRVA - hostSectionRVA;
-        auto const& exportDirectoryTable =
-            reinterpret_cast<ExportDirectoryTableEntry const*>( hostSectionRawBytes +
-                                                                exportDirectoryTableOffset );
-
-        auto const& namePointerTable =
-            reinterpret_cast<unsigned long const*>( hostSectionRawBytes +
-                                                    exportDirectoryTable->namePointerTableRVA -
-                                                    hostSectionRVA );
-        auto exportedFunctionNames = std::vector<std::string>{};
-        for ( auto i = 0; i < exportDirectoryTable->numberOfNamePointerTableEntries; i++ )
-        {
-            auto const exportedFunctionName =
-                std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
-                                                            namePointerTable[i] -
-                                                            hostSectionRVA ) );
-            loadedEXEFile.exportedFunctions.push_back( ExportedFunction
-                                                       {
-                                                           .name = std::string( exportedFunctionName )
-                                                       } );
-        }
+        loadedEXEFile.exportedFunctions = *exportedFunctionsInfo;
     }
 
     return loadedEXEFile;
-}
-
-bool
-hasImportTable( EXEFile const& exeFile )
-{
-    return exeFile.dataDirectoryEntries[importTableIdx].dataDirectoryRVA != 0;
-}
-
-bool
-hasExportTable( EXEFile const& exeFile )
-{
-    return exeFile.dataDirectoryEntries[exportTableIdx].dataDirectoryRVA != 0;
-}
-
-namespace
-{
-    std::string
-    getEXESectionName( unsigned long long const sectionNameAsNumber )
-    {
-        auto numberFormHasNull = false;
-        for ( auto i = 0; i < sizeof( sectionNameAsNumber ); i++ )
-        {
-            if ( ( reinterpret_cast<char const*>( &sectionNameAsNumber )[i] ) == '\0' )
-            {
-                numberFormHasNull = true;
-                break;
-            }
-        }
-
-        if ( not numberFormHasNull )
-        {
-            return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ),
-                                sizeof( sectionNameAsNumber ) );
-        }
-        else
-        {
-            return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ) );
-        }
-    }
-
-    std::optional<std::string>
-    getNameOfSectionContainingRVA( EXEFile const& exeFile,
-                                   unsigned long long const rvaOfInterest )
-    {
-        for ( auto const& [sectionName, sectionHeader] : exeFile.sectionHeadersNameToInfo )
-        {
-            if (    rvaOfInterest >= sectionHeader.sectionBaseAddressInMemory
-                and rvaOfInterest < sectionHeader.sectionBaseAddressInMemory + sectionHeader.sectionSizeInBytesInMemory )
-            {
-                return sectionName;
-            }
-        }
-
-        return std::nullopt;
-    }
 }

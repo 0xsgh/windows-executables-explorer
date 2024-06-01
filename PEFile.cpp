@@ -5,6 +5,9 @@
 
 namespace
 {
+    auto const exportTableIdx = 0;
+    auto const importTableIdx = 1;
+
     std::string
     getSectionName( unsigned long long const sectionNameAsNumber )
     {
@@ -28,6 +31,66 @@ namespace
             return std::string( reinterpret_cast<char const*>( &sectionNameAsNumber ) );
         }
     }
+
+    std::optional<std::string>
+    getNameOfSectionContainingRVA( std::map<std::string, PE::SectionHeader> const& sectionNameToHeader,
+                                   unsigned long long const rvaOfInterest )
+    {
+        for ( auto const& [sectionName, sectionHeader] : sectionNameToHeader )
+        {
+            if (    rvaOfInterest >= sectionHeader.sectionBaseAddressInMemory
+                and rvaOfInterest < sectionHeader.sectionBaseAddressInMemory + sectionHeader.sectionSizeInBytesInMemory )
+            {
+                return sectionName;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    bool
+    hasImportTable( std::vector<PE::DataDirectoryEntry> const& dataDirectoryEntries )
+    {
+        return dataDirectoryEntries[importTableIdx].dataDirectoryRVA != 0 and
+               dataDirectoryEntries[importTableIdx].sizeInBytes != 0;
+    }
+
+    struct ImportDirectoryTableEntry
+    {
+        unsigned long    importLookupTableRVA;
+        unsigned long    timestamp;
+        unsigned long    forwarderChainIdx;
+        unsigned long    namestringRVA;
+        unsigned long    importAddressTableRVA;
+    };
+
+    struct ImportLookupTableEntry64
+    {
+        unsigned long long    ordinalNumberOrNameTableRVA: 63;
+        unsigned long long    isOrdinal: 1;
+    };
+
+    bool
+    hasExportTable( std::vector<PE::DataDirectoryEntry> const& dataDirectoryEntries )
+    {
+        return dataDirectoryEntries[exportTableIdx].dataDirectoryRVA != 0 and
+               dataDirectoryEntries[exportTableIdx].sizeInBytes != 0;
+    }
+
+    struct ExportDirectoryTableEntry
+    {
+        unsigned long     _reserved1;
+        unsigned long     timestamp;
+        unsigned short    dllMajorVersion;
+        unsigned short    dllMinorVersion;
+        unsigned long     namestringRVA;
+        unsigned long     baseOrdinalNumber;
+        unsigned long     numberOfExportAddressTableEntries;
+        unsigned long     numberOfNamePointerTableEntries;
+        unsigned long     exportAddressTableRVA;
+        unsigned long     namePointerTableRVA;
+        unsigned long     ordinalTableRVA;
+    };
 }
 
 namespace PE
@@ -81,6 +144,151 @@ namespace PE
         }
 
         return sectionNameToHeader;
+    }
+
+    std::map<std::string, std::vector<unsigned char>>
+    extractRawSectionContents( unsigned char const* rawBytesFromStartOfFile,
+                               std::map<std::string, SectionHeader> const& sectionHeaders )
+    {
+        auto sectionNameToRawData = std::map<std::string, std::vector<unsigned char>>{};
+
+        for ( auto const& [sectionName, sectionHeader] : sectionHeaders )
+        {
+            auto const sectionSizeInFile = sectionHeader.sizeOfRawDataInBytes;
+            auto const sectionOffsetInFile = sectionHeader.pointerToRawData;
+
+            sectionNameToRawData[sectionName].resize( sectionSizeInFile );
+
+            std::memcpy( sectionNameToRawData.at( sectionName ).data(),
+                         rawBytesFromStartOfFile + sectionOffsetInFile,
+                         sectionSizeInFile );
+        }
+
+        return sectionNameToRawData;
+    }
+
+    std::optional<std::map<std::string, std::vector<std::string>>>
+    extractImportedFunctionsInfo( std::vector<DataDirectoryEntry> const& dataDirectoryEntries,
+                                  std::map<std::string, SectionHeader> const& sectionHeaders,
+                                  std::map<std::string, std::vector<unsigned char>> const& sectionRawData )
+    {
+        if ( not hasImportTable( dataDirectoryEntries ) )
+        {
+            return std::nullopt;
+        }
+
+        auto hostSectionName =
+            getNameOfSectionContainingRVA( sectionHeaders,
+                                           dataDirectoryEntries[importTableIdx].dataDirectoryRVA );
+
+        if ( not hostSectionName )
+        {
+            return std::nullopt;
+        }
+
+        auto const& hostSectionHeader = sectionHeaders.at( *hostSectionName );
+        auto const hostSectionRawBytes = sectionRawData.at( *hostSectionName ).data();
+
+        auto const importDirectoryTable =
+            reinterpret_cast<ImportDirectoryTableEntry const*>
+                ( hostSectionRawBytes +
+                  dataDirectoryEntries[importTableIdx].dataDirectoryRVA -
+                  hostSectionHeader.sectionBaseAddressInMemory );
+
+        auto dllNameToImportedFunctionNames = std::map<std::string, std::vector<std::string>>{};
+
+        for ( auto i = 0;; i++ )
+        {
+            if (     importDirectoryTable[i].importLookupTableRVA == 0
+                 and importDirectoryTable[i].timestamp == 0
+                 and importDirectoryTable[i].forwarderChainIdx == 0
+                 and importDirectoryTable[i].namestringRVA == 0
+                 and importDirectoryTable[i].importAddressTableRVA == 0 )
+            {
+                break;
+            }
+
+            auto const importedDLLName =
+                std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
+                                                            importDirectoryTable[i].namestringRVA -
+                                                            hostSectionHeader.sectionBaseAddressInMemory ) );
+
+            auto const importLookupTable =
+                reinterpret_cast<ImportLookupTableEntry64 const*>
+                    ( hostSectionRawBytes +
+                      importDirectoryTable[i].importLookupTableRVA -
+                      hostSectionHeader.sectionBaseAddressInMemory );
+
+            for ( auto j = 0;; j++ )
+            {
+                if (     importLookupTable[j].ordinalNumberOrNameTableRVA == 0
+                     and importLookupTable[j].isOrdinal == 0 )
+                {
+                    break;
+                }
+
+                auto const importedFunctionName =
+                    std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
+                                                                importLookupTable[j].ordinalNumberOrNameTableRVA +
+                                                                sizeof( unsigned short ) -
+                                                                hostSectionHeader.sectionBaseAddressInMemory ) );
+
+                dllNameToImportedFunctionNames[importedDLLName].push_back( importedFunctionName );
+            }
+        }
+
+        return dllNameToImportedFunctionNames;
+    }
+
+    std::optional<std::vector<ExportedFunction>>
+    extractExportedFunctionsInfo( std::vector<DataDirectoryEntry> const& dataDirectoryEntries,
+                                  std::map<std::string, SectionHeader> const& sectionHeaders,
+                                  std::map<std::string, std::vector<unsigned char>> const& sectionRawData )
+    {
+        if ( not hasExportTable( dataDirectoryEntries ) )
+        {
+            return std::nullopt;
+        }
+
+        auto hostSectionName =
+            getNameOfSectionContainingRVA( sectionHeaders,
+                                           dataDirectoryEntries[exportTableIdx].dataDirectoryRVA );
+
+        if ( not hostSectionName )
+        {
+            return std::nullopt;
+        }
+
+        auto const& hostSectionHeader = sectionHeaders.at( *hostSectionName );
+        auto const hostSectionRawBytes = sectionRawData.at( *hostSectionName ).data();
+
+        auto const& exportDirectoryTableSoleEntry =
+            *reinterpret_cast<ExportDirectoryTableEntry const*>
+                ( hostSectionRawBytes +
+                  dataDirectoryEntries[exportTableIdx].dataDirectoryRVA -
+                  hostSectionHeader.sectionBaseAddressInMemory );
+
+        auto const namePointerTable =
+            reinterpret_cast<unsigned long const*>( hostSectionRawBytes +
+                                                    exportDirectoryTableSoleEntry.namePointerTableRVA -
+                                                    hostSectionHeader.sectionBaseAddressInMemory );
+
+        auto exportedFunctionsInfo = std::vector<ExportedFunction>{};
+
+        for ( auto i = 0; i < exportDirectoryTableSoleEntry.numberOfNamePointerTableEntries; i++ )
+        {
+            auto const exportedFunctionName =
+                std::string( reinterpret_cast<char const*>( hostSectionRawBytes +
+                                                            namePointerTable[i] -
+                                                            hostSectionHeader.sectionBaseAddressInMemory ) );
+
+            exportedFunctionsInfo.push_back( ExportedFunction
+                                             {
+                                                .name = exportedFunctionName
+                                             } );
+        }
+
+        return exportedFunctionsInfo;
     }
 
     std::string
