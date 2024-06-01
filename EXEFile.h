@@ -8,11 +8,6 @@
 #include <string>
 #include <vector>
 
-struct ExportedFunction
-{
-    std::string    name;
-};
-
 struct EXEFile
 {
     std::vector<unsigned char>                           rawBytes;
@@ -24,16 +19,10 @@ struct EXEFile
     std::map<std::string, PE::SectionHeader>             sectionHeadersNameToInfo;
     std::map<std::string, std::vector<unsigned char>>    sectionNameToRawData;
     std::map<std::string, std::vector<std::string>>      importedDLLToImportedFunctions;
-    std::vector<ExportedFunction>                        exportedFunctions;
+    std::vector<PE::ExportedFunction>                    exportedFunctions;
 };
 
 EXEFile
 loadEXEFile( std::string const& pathOfExecutableFile );
-
-bool
-hasImportTable( EXEFile const& exeFile );
-
-bool
-hasExportTable( EXEFile const& exeFile );
 
 #endif // EXEFILE_H

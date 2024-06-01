@@ -3,6 +3,7 @@
 #define PEFILE_H
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,11 @@ namespace PE
         unsigned long         sectionCharacteristics;
     };
 
+    struct ExportedFunction
+    {
+        std::string    name;
+    };
+
     DOSHeader
     extractDOSHeader( unsigned char const* rawBytesFromStartOfDOSHeader );
 
@@ -74,6 +80,20 @@ namespace PE
     std::map<std::string, SectionHeader>
     extractSectionHeaders( unsigned char const* rawBytesFromStartOfSectionHeaders,
                            int const numberOfSections );
+
+    std::map<std::string, std::vector<unsigned char>>
+    extractRawSectionContents( unsigned char const* rawBytesFromStartOfFile,
+                               std::map<std::string, SectionHeader> const& sectionHeaders );
+
+    std::optional<std::map<std::string, std::vector<std::string>>>
+    extractImportedFunctionsInfo( std::vector<DataDirectoryEntry> const& dataDirectoryEntries,
+                                  std::map<std::string, SectionHeader> const& sectionHeaders,
+                                  std::map<std::string, std::vector<unsigned char>> const& sectionRawData );
+
+    std::optional<std::vector<ExportedFunction>>
+    extractExportedFunctionsInfo( std::vector<DataDirectoryEntry> const& dataDirectoryEntries,
+                                  std::map<std::string, SectionHeader> const& sectionHeaders,
+                                  std::map<std::string, std::vector<unsigned char>> const& sectionRawData );
 
     std::string
     getMachineArchitectureName( unsigned short const machineArchitecture );
