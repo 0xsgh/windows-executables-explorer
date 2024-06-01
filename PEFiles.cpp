@@ -9,6 +9,28 @@
 namespace
 {
     auto const optionalHeaderSig_PE32Plus = 0x20B;
+
+    std::vector<unsigned char>
+    loadPEFileAsRawBytes( std::string const& pathOfPEFileToLoad )
+    {
+        auto peFile = std::ifstream{ pathOfPEFileToLoad, std::ios::binary };
+
+        if( !peFile.is_open() )
+        {
+            throw std::runtime_error{ "Failed to open '" + pathOfPEFileToLoad + "'." };
+        }
+
+        auto const fileSizeInBytes =
+            static_cast<int>( peFile.seekg( 0, std::ios::end ).tellg() );
+        peFile.seekg( 0, std::ios::beg );
+
+        auto rawBytes = std::vector<unsigned char>( fileSizeInBytes );
+
+        peFile.read( reinterpret_cast<char*>( rawBytes.data() ),
+                     fileSizeInBytes );
+
+        return rawBytes;
+    }
 }
 
 EXEFile
@@ -16,36 +38,19 @@ loadEXEFile( std::string const& pathOfExecutableFile )
 {
     auto loadedEXEFile = EXEFile{};
 
-    {
-        auto exeFile = std::ifstream{ pathOfExecutableFile, std::ios::binary };
+    auto const rawBytes = loadPEFileAsRawBytes( pathOfExecutableFile );
 
-        if( !exeFile.is_open() )
-        {
-            throw std::runtime_error{ "Failed to open '" +
-                                      pathOfExecutableFile +
-                                      "'." };
-        }
-
-        auto const fileSizeInBytes =
-            static_cast<int>( exeFile.seekg( 0, std::ios::end ).tellg() );
-        exeFile.seekg( 0, std::ios::beg );
-
-        loadedEXEFile.rawBytes.resize( fileSizeInBytes );
-        exeFile.read( reinterpret_cast<char*>( loadedEXEFile.rawBytes.data() ),
-                      fileSizeInBytes );
-    }
-
-    loadedEXEFile.dosHeader = PE::extractDOSHeader( loadedEXEFile.rawBytes.data() );
+    loadedEXEFile.dosHeader = PE::extractDOSHeader( rawBytes.data() );
 
     auto const ntFileHeaderOffset =
         loadedEXEFile.dosHeader.offsetOfNTSignature +
         sizeof( loadedEXEFile.dosHeader.offsetOfNTSignature );
     loadedEXEFile.ntFileHeader =
-        PE::extractNTFileHeader( loadedEXEFile.rawBytes.data() + ntFileHeaderOffset );
+        PE::extractNTFileHeader( rawBytes.data() + ntFileHeaderOffset );
 
     auto const ntOptionalHeaderOffset = ntFileHeaderOffset + sizeof( PE::NTFileHeader );
     loadedEXEFile.ntOptionalHeader =
-        PE::extract64bitNTOptionalHeader( loadedEXEFile.rawBytes.data() +
+        PE::extract64bitNTOptionalHeader( rawBytes.data() +
                                           ntOptionalHeaderOffset );
 
     if ( loadedEXEFile.ntOptionalHeader.peSignature != optionalHeaderSig_PE32Plus )
@@ -56,7 +61,7 @@ loadEXEFile( std::string const& pathOfExecutableFile )
     auto const dataDirectoryEntriesOffset =
         ntOptionalHeaderOffset + sizeof( PE::NTOptionalHeader64 );
     loadedEXEFile.dataDirectoryEntries =
-        PE::extractDataDirectoryEntries( loadedEXEFile.rawBytes.data() + dataDirectoryEntriesOffset,
+        PE::extractDataDirectoryEntries( rawBytes.data() + dataDirectoryEntriesOffset,
                                          loadedEXEFile.ntOptionalHeader );
 
     auto const sectionHeaderTableOffset =
@@ -65,11 +70,11 @@ loadEXEFile( std::string const& pathOfExecutableFile )
     auto const numberOfSections = loadedEXEFile.ntFileHeader.numberOfSections;
 
     loadedEXEFile.sectionHeadersNameToInfo =
-        PE::extractSectionHeaders( loadedEXEFile.rawBytes.data() + sectionHeaderTableOffset,
+        PE::extractSectionHeaders( rawBytes.data() + sectionHeaderTableOffset,
                                    numberOfSections );
 
     loadedEXEFile.sectionNameToRawData =
-        PE::extractRawSectionContents( loadedEXEFile.rawBytes.data(),
+        PE::extractRawSectionContents( rawBytes.data(),
                                        loadedEXEFile.sectionHeadersNameToInfo );
 
     auto importedDLLToImportedFunctions =
@@ -91,4 +96,20 @@ loadEXEFile( std::string const& pathOfExecutableFile )
     }
 
     return loadedEXEFile;
+}
+
+OBJFile
+loadOBJFile( std::string const& pathOfObjectFile )
+{
+    auto loadedOBJFile = OBJFile{};
+
+    auto const rawBytes = loadPEFileAsRawBytes( pathOfObjectFile );
+
+    loadedOBJFile.ntFileHeader = PE::extractNTFileHeader( rawBytes.data() );
+
+    loadedOBJFile.sectionHeaders =
+        PE::extractSectionHeadersFromOBJFile( rawBytes.data() + sizeof( PE::NTFileHeader ),
+                                              loadedOBJFile.ntFileHeader.numberOfSections );
+
+    return loadedOBJFile;
 }

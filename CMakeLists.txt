@@ -10,6 +10,7 @@ add_executable(ewea
                main.cpp
                EWEAMainWindow.cpp
                EXEViewer.cpp
+               OBJViewer.cpp
                PEFiles.cpp
                PEFormat.cpp
               )

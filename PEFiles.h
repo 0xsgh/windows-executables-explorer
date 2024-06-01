@@ -10,7 +10,6 @@
 
 struct EXEFile
 {
-    std::vector<unsigned char>                           rawBytes;
     PE::DOSHeader                                        dosHeader;
     unsigned long                                        ntSignature;
     PE::NTFileHeader                                     ntFileHeader;
@@ -24,5 +23,14 @@ struct EXEFile
 
 EXEFile
 loadEXEFile( std::string const& pathOfExecutableFile );
+
+struct OBJFile
+{
+    PE::NTFileHeader                                         ntFileHeader;
+    std::map<std::string, std::vector<PE::SectionHeader>>    sectionHeaders;
+};
+
+OBJFile
+loadOBJFile( std::string const& pathOfObjectFile );
 
 #endif // PEFILES_H
