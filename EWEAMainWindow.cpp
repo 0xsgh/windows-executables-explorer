@@ -1,7 +1,7 @@
 
 #include "EWEAMainWindow.h"
-#include "EXEFile.h"
 #include "EXEViewer.h"
+#include "PEFiles.h"
 
 #include <QDragEnterEvent>
 #include <QHBoxLayout>

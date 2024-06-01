@@ -1,6 +1,6 @@
 
-#ifndef PEFILE_H
-#define PEFILE_H
+#ifndef PEFORMAT_H
+#define PEFORMAT_H
 
 #include <map>
 #include <optional>
@@ -105,4 +105,4 @@ namespace PE
     getImageDataDirectoryDescription( unsigned long const dataDirectoryIndex );
 }
 
-#endif // PEFILE_H
+#endif // PEFORMAT_H

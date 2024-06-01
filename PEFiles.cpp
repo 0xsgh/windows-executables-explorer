@@ -1,5 +1,5 @@
 
-#include "EXEFile.h"
+#include "PEFiles.h"
 
 #include <cstring>
 #include <fstream>

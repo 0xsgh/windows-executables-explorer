@@ -1,7 +1,5 @@
 
-#include "EXEFile.h"
 #include "EXEViewer.h"
-#include "PEFile.h"
 
 #include <QApplication>
 #include <QGridLayout>

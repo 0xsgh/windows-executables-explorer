@@ -1,8 +1,8 @@
 
-#ifndef EXEFILE_H
-#define EXEFILE_H
+#ifndef PEFILES_H
+#define PEFILES_H
 
-#include "PEFile.h"
+#include "PEFormat.h"
 
 #include <map>
 #include <string>
@@ -25,4 +25,4 @@ struct EXEFile
 EXEFile
 loadEXEFile( std::string const& pathOfExecutableFile );
 
-#endif // EXEFILE_H
+#endif // PEFILES_H
